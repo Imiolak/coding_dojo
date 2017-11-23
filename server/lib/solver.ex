@@ -1,18 +1,3 @@
-
-example = [
-  [0, 0, 0, 0],
-  [0, 0, 0, 0],
-  [0, 0, 0, 0],
-  [0, 0, 0, 0]
-]
-
-heights = [
-    2, 2, 3, 1,
-    1, 3, 2, 2,
-    2, 2, 3, 1,
-    1, 3, 2, 2
-]
-
 defmodule Solver do
   def isValid(partialBoard, heights) do
     true
@@ -76,20 +61,3 @@ defmodule Solver do
      #return solution
   end 
 end
-
-
-
-#solution = Solver.solve(example, heights)
-IO.inspect Solver.getNextBoards(example, [])
-#IO.inspect Solver.isFull([[1]])
-#IO.puts example
-#|> Enum.at(0)
-#|> Enum.at(0)
-#Solver.print(solution)
-#
-#isValid.([], 1)
-
-
-
-# sum = fn (a, b) -> a + b end
-#IO.puts getPair.(1)
