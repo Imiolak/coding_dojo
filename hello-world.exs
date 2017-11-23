@@ -1,9 +1,14 @@
-example = [
-  [0, 0, 0, 0],
-  [0, 0, 0, 0],
-  [0, 0, 0, 0],
-  [0, 0, 0, 0]
+
+example2 = [
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0
 ]
+
+example = [
+  0, 0, 0, 0
+];
 
 heights = [
     2, 2, 3, 1,
@@ -25,61 +30,61 @@ defmodule Solver do
     Enum.each(board, fn (row) -> Enum.join(row, "\t") |> IO.puts end)
   end
 
-  def isRowFull(row) do
-    Enum.reduce row, true, fn(current, fullSoFar) ->
-       fullSoFar and current > 0
-    end
-  end 
-
   def isFull(board) do 
-    Enum.reduce board, true, fn(currentRow, fullSoFar) ->
-       fullSoFar and isRowFull(currentRow)
+    Enum.reduce board, true, fn(current, fullSoFar) ->
+       fullSoFar and current > 0
     end
   end
 
   def findNextZero(board) do
-    Enum.reduce board, true, fn(currentRow, fullSoFar) ->
-       fullSoFar and isRowFull(currentRow)
-    end
-     
+    Enum.find_index(board, fn(element) -> 
+       element == 0
+    end)
   end 
 
   def getNextBoards(board, heights) do  
-    {columnToChange, rowToChange} = findNextZero(board)
+    indexToChange = findNextZero(board)
 
     [1,2,3,4] |> Enum.map(fn(buildingHeight) ->
-        board |> Enum.with_index |> Enum.map(fn({row, i}) ->    
-            row |> Enum.with_index |> Enum.map(fn({element, j}) ->    
-                if columnToChange == i and rowToChange == j do
-                    buildingHeight
-                else
-                    element
-                end
-            end)
-        end)    
+        board |> Enum.with_index |> Enum.map(fn({element, i}) ->    
+            if indexToChange == i do
+                buildingHeight
+            else
+                element
+            end
+        end)
     end) 
-
-
-    # nextBoard = Enum.map(row, fn(possibleBoard) -> solve(possibleBoard, heights))    
   end
 
   def solve(board, heights) do 
-     if isFull(board) and isValid(board, heights) do
+     valid = isValid(board, heights)
+     if isFull(board) and valid do # and isValid(board, heights)
        {true, board}
-     else
-    # if board is not valid and full do
-       {false, board} 
+     else 
+       if not valid do
+        {false, board}
+       else 
+        newPossibleBoards = getNextBoards(board, heights)
+
+       # IO.inspect newPossibleBoards
+
+        Enum.reduce newPossibleBoards, { false, [] }, fn(possibleBoard, foundSolution) ->
+          {isValid, board} = foundSolution
+          if isValid do
+            foundSolution
+          else 
+            solve(possibleBoard, heights)
+          end
+        end
      end
-     #newPossibleBoards = getNextBoards(board, heights)
-     #possibleSolutions = Enum.map(newPossibleBoards, fn(possibleBoard) -> solve(possibleBoard, heights))
-     #return solution
+     end
   end 
 end
 
 
 
 #solution = Solver.solve(example, heights)
-IO.inspect Solver.getNextBoards(example, [])
+IO.inspect Solver.solve(example2, [])
 #IO.inspect Solver.isFull([[1]])
 #IO.puts example
 #|> Enum.at(0)
