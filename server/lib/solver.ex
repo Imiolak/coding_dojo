@@ -1,6 +1,30 @@
 defmodule Solver do
-  def isValid(partialBoard, heights) do
+  def isRowValid(row) do     
+    without0 = Enum.filter(row, fn(x) -> x > 0 end)
+    length(Enum.uniq(without0)) == length(without0)
+  end 
+
+  def isColumnValid(column) do
     true
+  end 
+
+  def isValid(partialBoard, heights) do
+    rowsValid = Enum.all?([0,1,2,3], fn(rowIndex) ->
+      rowStart = rowIndex * 4
+      rowEnd = rowStart + 3
+      row = Enum.slice(partialBoard, rowStart..rowEnd)
+      isRowValid(row)
+    end) 
+
+    columnsValid = Enum.all?([0,1,2,3], fn(columnIndex) ->
+      column = Enum.map([0,1,2,3], fn(columnOffset) ->
+         Enum.at(partialBoard, 4*columnOffset + columnIndex)
+      end)
+      isRowValid(column)
+    end) 
+
+    rowsValid and columnsValid
+    
   end
 
   def isPartiallyValid(partialBoard, heights) do
@@ -11,53 +35,53 @@ defmodule Solver do
     Enum.each(board, fn (row) -> Enum.join(row, "\t") |> IO.puts end)
   end
 
-  def isRowFull(row) do
-    Enum.reduce row, true, fn(current, fullSoFar) ->
-       fullSoFar and current > 0
-    end
-  end 
-
   def isFull(board) do 
-    Enum.reduce board, true, fn(currentRow, fullSoFar) ->
-       fullSoFar and isRowFull(currentRow)
+    Enum.reduce board, true, fn(current, fullSoFar) ->
+       fullSoFar and current > 0
     end
   end
 
   def findNextZero(board) do
-    Enum.reduce board, true, fn(currentRow, fullSoFar) ->
-       fullSoFar and isRowFull(currentRow)
-    end
-     
+    Enum.find_index(board, fn(element) -> 
+       element == 0
+    end)
   end 
 
   def getNextBoards(board, heights) do  
-    {columnToChange, rowToChange} = findNextZero(board)
+    indexToChange = findNextZero(board)
 
     [1,2,3,4] |> Enum.map(fn(buildingHeight) ->
-        board |> Enum.with_index |> Enum.map(fn({row, i}) ->    
-            row |> Enum.with_index |> Enum.map(fn({element, j}) ->    
-                if columnToChange == i and rowToChange == j do
-                    buildingHeight
-                else
-                    element
-                end
-            end)
-        end)    
+        board |> Enum.with_index |> Enum.map(fn({element, i}) ->    
+            if indexToChange == i do
+                buildingHeight
+            else
+                element
+            end
+        end)
     end) 
-
-
-    # nextBoard = Enum.map(row, fn(possibleBoard) -> solve(possibleBoard, heights))    
   end
 
   def solve(board, heights) do 
-     if isFull(board) and isValid(board, heights) do
+     valid = isValid(board, heights)
+     if isFull(board) and valid do # and isValid(board, heights)
        {true, board}
-     else
-    # if board is not valid and full do
-       {false, board} 
+     else 
+       if not valid do
+        {false, board}
+       else 
+        newPossibleBoards = getNextBoards(board, heights)
+
+       # IO.inspect newPossibleBoards
+
+        Enum.reduce newPossibleBoards, { false, [] }, fn(possibleBoard, foundSolution) ->
+          {isValid, board} = foundSolution
+          if isValid do
+            foundSolution
+          else 
+            solve(possibleBoard, heights)
+          end
+        end
      end
-     #newPossibleBoards = getNextBoards(board, heights)
-     #possibleSolutions = Enum.map(newPossibleBoards, fn(possibleBoard) -> solve(possibleBoard, heights))
-     #return solution
+     end
   end 
 end
