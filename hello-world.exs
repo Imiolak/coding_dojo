@@ -18,8 +18,32 @@ heights = [
 ]
 
 defmodule Solver do
-  def isValid(partialBoard, heights) do
+  def isRowValid(row) do     
+    without0 = Enum.filter(row, fn(x) -> x > 0 end)
+    length(Enum.uniq(without0)) == length(without0)
+  end 
+
+  def isColumnValid(column) do
     true
+  end 
+
+  def isValid(partialBoard, heights) do
+    rowsValid = Enum.all?([0,1,2,3], fn(rowIndex) ->
+      rowStart = rowIndex * 4
+      rowEnd = rowStart + 3
+      row = Enum.slice(partialBoard, rowStart..rowEnd)
+      isRowValid(row)
+    end) 
+
+    columnsValid = Enum.all?([0,1,2,3], fn(columnIndex) ->
+      column = Enum.map([0,1,2,3], fn(columnOffset) ->
+         Enum.at(partialBoard, 4*columnOffset + columnIndex)
+      end)
+      isRowValid(column)
+    end) 
+
+    rowsValid and columnsValid
+    
   end
 
   def isPartiallyValid(partialBoard, heights) do
