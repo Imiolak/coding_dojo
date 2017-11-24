@@ -1,56 +1,129 @@
 defmodule Solver do
-  def isRowValid(row) do     
+
+  def isLineValid(row) do     
     without0 = Enum.filter(row, fn(x) -> x > 0 end)
     length(Enum.uniq(without0)) == length(without0)
   end 
 
-  def isColumnValid(column) do
-    true
+  def getRow(board, index, boardSize) do     
+    rowStart = index * boardSize
+    rowEnd = rowStart + boardSize - 1
+    Enum.slice(board, rowStart..rowEnd)    
+  end
+
+  def getColumn(board, index, boardSize) do     
+    Enum.map(0..(boardSize-1), fn(columnOffset) ->
+        Enum.at(board, boardSize*columnOffset + index)
+    end)
+  end
+
+  def getTopCount(heights, index) do
+    Enum.at(heights, index)
   end 
 
-  def isValid(partialBoard, heights) do
-    rowsValid = Enum.all?([0,1,2,3], fn(rowIndex) ->
-      rowStart = rowIndex * 4
-      rowEnd = rowStart + 3
-      row = Enum.slice(partialBoard, rowStart..rowEnd)
-      isRowValid(row)
+  def getRightCount(heights, index, boardSize) do
+    Enum.at(heights, boardSize + index)
+  end 
+
+  def getBottomCount(heights, index, boardSize) do
+    Enum.at(heights, 3 * boardSize - index - 1)
+  end 
+
+  def getLeftCount(heights, index, boardSize) do
+    Enum.at(heights, 4 * boardSize - index - 1)
+  end 
+
+  def getVisibleCount(currentHightest, line) do
+    if length(line) == 1 do
+      [last] = line
+      if last > currentHightest do
+        1
+      else 
+        0
+      end
+    else 
+      [first | rest] = line 
+      if first > currentHightest do
+        getVisibleCount(first, rest) + 1
+      else
+        getVisibleCount(currentHightest, rest)
+      end
+    end
+  end
+  
+  def isPartial(line) do
+    not isFull(line) and Enum.at(line, 0) > 0
+  end 
+
+  def getPartial(line) do
+    Enum.slice(line, 0..(findNextZero(line)-1))   
+  end 
+
+  def isValid(partialBoard, heights, boardSize) do   
+    rowsValid = Enum.all?(0..(boardSize-1), fn(rowIndex) ->
+      row = getRow(partialBoard, rowIndex, boardSize)
+      reversedRow = Enum.reverse(row)
+      leftCount = getLeftCount(heights, rowIndex, boardSize)
+      rightCount = getRightCount(heights, rowIndex, boardSize)
+      
+      if isFull(row) do
+        leftCountValid = leftCount == getVisibleCount(0, row)
+        rightCountValid = rightCount == getVisibleCount(0, reversedRow)
+        isLineValid(row) and leftCountValid and rightCountValid
+      else        
+        isValidAsPartial =
+          (not isPartial(row) or getVisibleCount(0, getPartial(row)) <= leftCount) 
+          and (not isPartial(reversedRow) or getVisibleCount(0, getPartial(reversedRow)) <= rightCount)        
+        isLineValid(row) and isValidAsPartial
+      end
     end) 
 
-    columnsValid = Enum.all?([0,1,2,3], fn(columnIndex) ->
-      column = Enum.map([0,1,2,3], fn(columnOffset) ->
-         Enum.at(partialBoard, 4*columnOffset + columnIndex)
-      end)
-      isRowValid(column)
+    columnsValid = Enum.all?(0..(boardSize-1), fn(columnIndex) ->
+      column = getColumn(partialBoard, columnIndex, boardSize)
+      reversedColumn = Enum.reverse(column)      
+      topCount = getTopCount(heights, columnIndex)
+      bottomCount = getBottomCount(heights, columnIndex, boardSize)
+
+      if isFull(column) do
+        topCountValid = topCount == getVisibleCount(0, column)
+        bottomCountValid = bottomCount == getVisibleCount(0, reversedColumn)
+        isLineValid(column) and topCountValid and bottomCountValid
+      else        
+        isValidAsPartial =
+          (not isPartial(column) or getVisibleCount(0, getPartial(column)) <= topCount) 
+          and (not isPartial(reversedColumn) or getVisibleCount(0, getPartial(reversedColumn)) <= bottomCount)        
+        isLineValid(column) and isValidAsPartial
+      end
     end) 
-
-    rowsValid and columnsValid
-    
+    rowsValid and columnsValid    
   end
 
-  def isPartiallyValid(partialBoard, heights) do
-    #partialBoard[0][0] = 1
+  def print(board, boardSize) do
+    Enum.each(0..(boardSize-1), fn(rowIndex) ->
+      row = getRow(board, rowIndex, boardSize)
+      Enum.join(row, "\t") |> IO.puts      
+    end)
+    IO.puts "\n"
   end
 
-  def print(board) do
-    Enum.each(board, fn (row) -> Enum.join(row, "\t") |> IO.puts end)
-  end
-
-  def isFull(board) do 
-    Enum.reduce board, true, fn(current, fullSoFar) ->
+  def isFull(line) do 
+    Enum.reduce line, true, fn(current, fullSoFar) ->
        fullSoFar and current > 0
     end
   end
 
-  def findNextZero(board) do
-    Enum.find_index(board, fn(element) -> 
-       element == 0
-    end)
+  def findNextZero(line) do
+    Enum.find_index(line, fn(element) -> element == 0 end)
   end 
 
-  def getNextBoards(board, heights) do  
+  def getNextBoards(board, boardSize) do  
     indexToChange = findNextZero(board)
 
-    [1,2,3,4] |> Enum.map(fn(buildingHeight) ->
+    if indexToChange > 29 do
+      print(board, 6)
+    end
+
+    1..boardSize |> Enum.map(fn(buildingHeight) ->
         board |> Enum.with_index |> Enum.map(fn({element, i}) ->    
             if indexToChange == i do
                 buildingHeight
@@ -61,27 +134,29 @@ defmodule Solver do
     end) 
   end
 
-  def solve(board, heights) do 
-     valid = isValid(board, heights)
-     if isFull(board) and valid do # and isValid(board, heights)
-       {true, board}
-     else 
-       if not valid do
+  def solve(heights, boardSize) do
+    initialBoard = 1..(boardSize*boardSize) |> Enum.map(fn(index) -> 0 end)
+    solveInternal(initialBoard, heights, boardSize)
+  end 
+
+  def solveInternal(board, heights, boardSize) do 
+    valid = isValid(board, heights, boardSize)
+    if isFull(board) and valid do
+      {true, board}
+    else 
+      if not valid do
         {false, board}
-       else 
-        newPossibleBoards = getNextBoards(board, heights)
-
-       # IO.inspect newPossibleBoards
-
+      else 
+        newPossibleBoards = getNextBoards(board, boardSize)
         Enum.reduce newPossibleBoards, { false, [] }, fn(possibleBoard, foundSolution) ->
-          {isValid, board} = foundSolution
+          {isValid, _ } = foundSolution
           if isValid do
             foundSolution
           else 
-            solve(possibleBoard, heights)
+            solveInternal(possibleBoard, heights, boardSize)
           end
         end
-     end
-     end
+      end
+    end
   end 
 end
