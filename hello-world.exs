@@ -1,75 +1,93 @@
-
-example2 = [
-  0, 0, 0, 0,
-  0, 0, 0, 0,
-  0, 0, 0, 0,
-  0, 0, 0, 0
-]
-
-example = [
-  0, 0, 0, 0
-];
-
-heights = [
-    2, 2, 3, 1,
-    1, 3, 2, 2,
-    2, 2, 3, 1,
-    1, 3, 2, 2
-]
-
 defmodule Solver do
-  def isRowValid(row) do     
+
+  def isLineValid(row) do     
     without0 = Enum.filter(row, fn(x) -> x > 0 end)
     length(Enum.uniq(without0)) == length(without0)
   end 
 
-  def isColumnValid(column) do
-    true
+  def getRow(board, index, boardSize) do     
+    rowStart = index * boardSize
+    rowEnd = rowStart + boardSize - 1
+    Enum.slice(board, rowStart..rowEnd)    
+  end
+
+  def getColumn(board, index, boardSize) do     
+    Enum.map(0..(boardSize-1), fn(columnOffset) ->
+        Enum.at(board, boardSize*columnOffset + index)
+    end)
+  end
+
+  def topCount(heights, index) do
+    Enum.at(heights, index)
   end 
 
-  def isValid(partialBoard, heights) do
-    rowsValid = Enum.all?([0,1,2,3], fn(rowIndex) ->
-      rowStart = rowIndex * 4
-      rowEnd = rowStart + 3
-      row = Enum.slice(partialBoard, rowStart..rowEnd)
-      isRowValid(row)
+  def rightCount(heights, index, boardSize) do
+    Enum.at(heights, boardSize + index)
+  end 
+
+  def bottomCount(heights, index, boardSize) do
+    Enum.at(heights, 3 * boardSize - index - 1)
+  end 
+
+  def leftCount(heights, index, boardSize) do
+    Enum.at(heights, 4 * boardSize - index - 1)
+  end 
+
+  def getVisibleCount(currentHightest, line) do
+    if length(line) == 1 do
+      [last] = line
+      if last > currentHightest do
+        1
+      else 
+        0
+      end
+    else 
+      [first | rest] = line 
+      if first > currentHightest do
+        getVisibleCount(first, rest) + 1
+      else
+        getVisibleCount(currentHightest, rest)
+      end
+    end
+  end
+
+  def isValid(partialBoard, heights, boardSize) do   
+    rowsValid = Enum.all?(0..(boardSize-1), fn(rowIndex) ->
+      row = getRow(partialBoard, rowIndex, boardSize)
+      leftCountValid = leftCount(heights, rowIndex, boardSize) == getVisibleCount(0, row)
+      rightCountValid = rightCount(heights, rowIndex, boardSize) == getVisibleCount(0, Enum.reverse(row))
+      isLineValid(row) and (not isFull(row) or leftCountValid and rightCountValid)
     end) 
-
-    columnsValid = Enum.all?([0,1,2,3], fn(columnIndex) ->
-      column = Enum.map([0,1,2,3], fn(columnOffset) ->
-         Enum.at(partialBoard, 4*columnOffset + columnIndex)
-      end)
-      isRowValid(column)
+    columnsValid = Enum.all?(0..(boardSize-1), fn(columnIndex) ->
+      column = getColumn(partialBoard, columnIndex, boardSize)
+      topCountValid = topCount(heights, columnIndex) == getVisibleCount(0, column)
+      bottomCountValid = bottomCount(heights, columnIndex, boardSize) == getVisibleCount(0, Enum.reverse(column))
+      isLineValid(column) and (not isFull(column) or topCountValid and bottomCountValid)
     end) 
-
-    rowsValid and columnsValid
-    
+    rowsValid and columnsValid    
   end
 
-  def isPartiallyValid(partialBoard, heights) do
-    #partialBoard[0][0] = 1
+  def print(board, boardSize) do
+    Enum.each(0..(boardSize-1), fn(rowIndex) ->
+      row = getRow(board, rowIndex, boardSize)
+      Enum.join(row, "\t") |> IO.puts      
+    end)
   end
 
-  def print(board) do
-    Enum.each(board, fn (row) -> Enum.join(row, "\t") |> IO.puts end)
-  end
-
-  def isFull(board) do 
-    Enum.reduce board, true, fn(current, fullSoFar) ->
+  def isFull(line) do 
+    Enum.reduce line, true, fn(current, fullSoFar) ->
        fullSoFar and current > 0
     end
   end
 
   def findNextZero(board) do
-    Enum.find_index(board, fn(element) -> 
-       element == 0
-    end)
+    Enum.find_index(board, fn(element) -> element == 0 end)
   end 
 
-  def getNextBoards(board, heights) do  
+  def getNextBoards(board, boardSize) do  
     indexToChange = findNextZero(board)
 
-    [1,2,3,4] |> Enum.map(fn(buildingHeight) ->
+    1..boardSize |> Enum.map(fn(buildingHeight) ->
         board |> Enum.with_index |> Enum.map(fn({element, i}) ->    
             if indexToChange == i do
                 buildingHeight
@@ -80,54 +98,64 @@ defmodule Solver do
     end) 
   end
 
-  def solve(board, heights) do 
-     valid = isValid(board, heights)
-     if isFull(board) and valid do # and isValid(board, heights)
-       {true, board}
-     else 
-       if not valid do
+  def solve(heights, boardSize) do
+    initialBoard = [
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0,
+      0, 0, 0, 0
+    ]
+    solveInternal(initialBoard, heights, boardSize)
+  end 
+
+  def solveInternal(board, heights, boardSize) do 
+    valid = isValid(board, heights, boardSize)
+    if isFull(board) and valid do
+      {true, board}
+    else 
+      if not valid do
         {false, board}
-       else 
-        newPossibleBoards = getNextBoards(board, heights)
-
-       # IO.inspect newPossibleBoards
-
+      else 
+        newPossibleBoards = getNextBoards(board, boardSize)
         Enum.reduce newPossibleBoards, { false, [] }, fn(possibleBoard, foundSolution) ->
-          {isValid, board} = foundSolution
+          {isValid, _ } = foundSolution
           if isValid do
             foundSolution
           else 
-            solve(possibleBoard, heights)
+            solveInternal(possibleBoard, heights, boardSize)
           end
         end
-     end
-     end
+      end
+    end
   end 
 end
 
+example4 = [
+  4, 1, 2, 3,
+  1, 3, 4, 2,
+  2, 4, 3, 1,
+  3, 2, 1, 4
+]
 
+heights = [
+    2, 2, 3, 1,
+    1, 3, 2, 2,
+    2, 2, 3, 1,
+    1, 3, 2, 2
+]
 
-#solution = Solver.solve(example, heights)
-IO.inspect Solver.solve(example2, [])
+#   2  2  3  1
+# 2             1
+# 2             3
+# 3             2
+# 1             2
+#   1  3  2  2
+
+#column = Solver.getColumn(example4, 1)
+#IO.inspect Solver.bottomCount(heights, 0)
+#IO.inspect column
+#IO.inspect Solver.getVisibleCount(0, column)
 #IO.inspect Solver.isFull([[1]])
-#IO.puts example
-#|> Enum.at(0)
-#|> Enum.at(0)
-#Solver.print(solution)
-#
-#isValid.([], 1)
 
-defmodule CowboyHandler do  
-  def init(_type, req, _opts) do
-    {:ok, req, :nostate}
-  end
-
-  def handle(request, state) do    
-    { :ok, reply } = :cowboy_req.reply(
-      200, [{"content-type", "text/html"}], "<h1>Hello World!</h1>", request
-    )
-    {:ok, reply, state}
-  end
-
-  def terminate(_reason, _request, _state), do:    :ok
-end
+{_, solution } = Solver.solve(heights, 4)
+Solver.print(solution, 4)
