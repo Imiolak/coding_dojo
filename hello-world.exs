@@ -17,19 +17,19 @@ defmodule Solver do
     end)
   end
 
-  def topCount(heights, index) do
+  def getTopCount(heights, index) do
     Enum.at(heights, index)
   end 
 
-  def rightCount(heights, index, boardSize) do
+  def getRightCount(heights, index, boardSize) do
     Enum.at(heights, boardSize + index)
   end 
 
-  def bottomCount(heights, index, boardSize) do
+  def getBottomCount(heights, index, boardSize) do
     Enum.at(heights, 3 * boardSize - index - 1)
   end 
 
-  def leftCount(heights, index, boardSize) do
+  def getLeftCount(heights, index, boardSize) do
     Enum.at(heights, 4 * boardSize - index - 1)
   end 
 
@@ -50,19 +50,50 @@ defmodule Solver do
       end
     end
   end
+  
+  def isPartial(line) do
+    not isFull(line) and Enum.at(line, 0) > 0
+  end 
+
+  def getPartial(line) do
+    Enum.slice(line, 0..(findNextZero(line)-1))   
+  end 
 
   def isValid(partialBoard, heights, boardSize) do   
     rowsValid = Enum.all?(0..(boardSize-1), fn(rowIndex) ->
       row = getRow(partialBoard, rowIndex, boardSize)
-      leftCountValid = leftCount(heights, rowIndex, boardSize) == getVisibleCount(0, row)
-      rightCountValid = rightCount(heights, rowIndex, boardSize) == getVisibleCount(0, Enum.reverse(row))
-      isLineValid(row) and (not isFull(row) or leftCountValid and rightCountValid)
+      reversedRow = Enum.reverse(row)
+      leftCount = getLeftCount(heights, rowIndex, boardSize)
+      rightCount = getRightCount(heights, rowIndex, boardSize)
+      
+      if isFull(row) do
+        leftCountValid = leftCount == getVisibleCount(0, row)
+        rightCountValid = rightCount == getVisibleCount(0, reversedRow)
+        isLineValid(row) and leftCountValid and rightCountValid
+      else        
+        isValidAsPartial =
+          (not isPartial(row) or getVisibleCount(0, getPartial(row)) <= leftCount) 
+          and (not isPartial(reversedRow) or getVisibleCount(0, getPartial(reversedRow)) <= rightCount)        
+        isLineValid(row) and isValidAsPartial
+      end
     end) 
+
     columnsValid = Enum.all?(0..(boardSize-1), fn(columnIndex) ->
       column = getColumn(partialBoard, columnIndex, boardSize)
-      topCountValid = topCount(heights, columnIndex) == getVisibleCount(0, column)
-      bottomCountValid = bottomCount(heights, columnIndex, boardSize) == getVisibleCount(0, Enum.reverse(column))
-      isLineValid(column) and (not isFull(column) or topCountValid and bottomCountValid)
+      reversedColumn = Enum.reverse(column)      
+      topCount = getTopCount(heights, columnIndex)
+      bottomCount = getBottomCount(heights, columnIndex, boardSize)
+
+      if isFull(column) do
+        topCountValid = topCount == getVisibleCount(0, column)
+        bottomCountValid = bottomCount == getVisibleCount(0, reversedColumn)
+        isLineValid(column) and topCountValid and bottomCountValid
+      else        
+        isValidAsPartial =
+          (not isPartial(column) or getVisibleCount(0, getPartial(column)) <= topCount) 
+          and (not isPartial(reversedColumn) or getVisibleCount(0, getPartial(reversedColumn)) <= bottomCount)        
+        isLineValid(column) and isValidAsPartial
+      end
     end) 
     rowsValid and columnsValid    
   end
@@ -72,6 +103,7 @@ defmodule Solver do
       row = getRow(board, rowIndex, boardSize)
       Enum.join(row, "\t") |> IO.puts      
     end)
+    IO.puts "\n"
   end
 
   def isFull(line) do 
@@ -80,12 +112,16 @@ defmodule Solver do
     end
   end
 
-  def findNextZero(board) do
-    Enum.find_index(board, fn(element) -> element == 0 end)
+  def findNextZero(line) do
+    Enum.find_index(line, fn(element) -> element == 0 end)
   end 
 
   def getNextBoards(board, boardSize) do  
     indexToChange = findNextZero(board)
+
+    if indexToChange > 29 do
+      print(board, 6)
+    end
 
     1..boardSize |> Enum.map(fn(buildingHeight) ->
         board |> Enum.with_index |> Enum.map(fn({element, i}) ->    
@@ -99,12 +135,7 @@ defmodule Solver do
   end
 
   def solve(heights, boardSize) do
-    initialBoard = [
-      0, 0, 0, 0,
-      0, 0, 0, 0,
-      0, 0, 0, 0,
-      0, 0, 0, 0
-    ]
+    initialBoard = 1..(boardSize*boardSize) |> Enum.map(fn(index) -> 0 end)
     solveInternal(initialBoard, heights, boardSize)
   end 
 
@@ -130,32 +161,41 @@ defmodule Solver do
   end 
 end
 
-example4 = [
-  4, 1, 2, 3,
-  1, 3, 4, 2,
-  2, 4, 3, 1,
-  3, 2, 1, 4
+solution_big = [
+  3, 5, 6, 4, 1, 2,
+  4, 6, 5, 1, 2, 3,
+  6, 2, 4, 5, 3, 1,
+  1, 4, 2, 3, 5, 6,
+  2, 3, 1, 6, 4, 5,
+  5, 1, 3, 2, 6, 4
 ]
 
 heights = [
+    3, 2, 1, 3, 5, 3,
+    3, 3, 4, 1, 2, 2,
+    3, 1, 2, 4, 4, 2,
+    2, 3, 4, 1, 2, 3
+]
+
+#   3  2  1  3  5  3
+# 3                  3
+# 2                  3
+# 1                  4
+# 4                  1
+# 3                  2
+# 2                  2
+#   2  4  4  2  1  3
+
+
+heights_small = [
     2, 2, 3, 1,
     1, 3, 2, 2,
     2, 2, 3, 1,
     1, 3, 2, 2
 ]
 
-#   2  2  3  1
-# 2             1
-# 2             3
-# 3             2
-# 1             2
-#   1  3  2  2
+{_, solution } = Solver.solve(heights, 6)
+Solver.print(solution, 6)
 
-#column = Solver.getColumn(example4, 1)
-#IO.inspect Solver.bottomCount(heights, 0)
-#IO.inspect column
-#IO.inspect Solver.getVisibleCount(0, column)
-#IO.inspect Solver.isFull([[1]])
-
-{_, solution } = Solver.solve(heights, 4)
-Solver.print(solution, 4)
+# Solving time for 4x4 array: milliseconds
+#                  6x6 array: 7 minutes
